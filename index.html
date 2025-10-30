@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="no">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>NDLA Julekalender 🎄</title>
+<style>
+  :root{ --ball-size: 44px; }
+
+  body{
+    margin:0;
+    background:#06220f;
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+    color:#fff;
+    text-align:center;
+    overflow-x:hidden;
+  }
+
+  h1{ margin:18px 10px 6px; font-size: clamp(22px, 3vw, 34px); }
+  .hint{ opacity:.85; margin-bottom:10px }
+
+  /* Vi lager litt ekstra plass på toppen til stjerna */
+  .stage{
+    width:min(92vw, 760px);
+    margin:12px auto 8px;
+    position:relative;
+    aspect-ratio:1/1;
+    max-width:760px;
+    overflow:visible;
+  }
+
+  /* Egen wrapper for treet slik at vi kan skyve det litt ned og skalere */
+  .tree-wrap{
+    position:absolute; inset:0;
+    display:flex; align-items:flex-start; justify-content:center;
+    pointer-events:none;
+  }
+  .tree{
+    position:absolute; left:50%;
+    width:92%;               /* litt mindre enn full bredde */
+    height:92%;              /* litt lavere for å gi stjerneplass */
+    top:6%;                  /* dytt litt ned */
+    transform:translateX(-50%);
+    background:#0b2d14 url("jul.png") center/contain no-repeat;
+    filter: drop-shadow(0 10px 30px rgba(0,0,0,.45));
+    border-radius:6px;
+  }
+
+  /* --- Stjerne på toppen --- */
+  .star{
+    position:absolute;
+    top:0.8%; left:50%;
+    transform:translateX(-50%);
+    font-size: clamp(34px, 5vw, 52px);
+    text-shadow: 0 0 10px #fff89a, 0 0 22px #ffd700, 0 0 44px #ffea80;
+    animation: pulse 2.6s ease-in-out infinite;
+    pointer-events:none;
+  }
+  @keyframes pulse{
+    0%,100%{opacity:0.9; transform:translateX(-50%) scale(1);}
+    50%{opacity:1; transform:translateX(-50%) scale(1.1);}
+  }
+
+  /* --- Kuler --- */
+  .ball{
+    position:absolute;
+    width:var(--ball-size);
+    height:var(--ball-size);
+    border-radius:50%;
+    display:flex; align-items:center; justify-content:center;
+    font-weight:700;
+    border:2px solid #fff;
+    color:#fff;
+    cursor:pointer;
+    user-select:none;
+    transform: translate(-50%, -50%);
+    transition: transform .18s ease, opacity .25s ease, filter .2s ease;
+    background: radial-gradient(35% 35% at 30% 30%, #ffb3b3 0 25%, #e34545 25% 60%, #9c1414 60% 100%);
+    box-shadow: 0 6px 10px rgba(0,0,0,.35);
+  }
+  .ball:hover{ transform: translate(-50%, -50%) scale(1.08); }
+  .ball.used{
+    background: radial-gradient(35% 35% at 30% 30%, #f1f1f1 0 25%, #bdbdbd 25% 60%, #7a7a7a 60% 100%);
+    cursor:default; opacity:.78; filter:grayscale(.2);
+  }
+
+  #result{
+    margin:12px auto 10px;
+    width:min(92vw, 760px);
+    background:rgba(255,255,255,.08);
+    padding:12px 14px;
+    border-radius:10px;
+    font-size: clamp(16px, 2.3vw, 20px);
+  }
+
+  .footer{
+    width:min(92vw, 760px);
+    margin:0 auto 10px;
+    display:flex; justify-content:space-between; align-items:center;
+    gap:8px; font-size:14px; opacity:.9;
+  }
+
+  .btn{
+    appearance:none; border:none; border-radius:8px; padding:8px 12px;
+    background:rgba(255,255,255,.14); color:#fff; cursor:pointer;
+  }
+  .btn:hover{ background:rgba(255,255,255,.22); }
+  .muted{ opacity:.85 }
+
+  #liste{
+    width:min(92vw, 760px);
+    margin:0 auto 40px;
+    text-align:left;
+    background:rgba(255,255,255,.05);
+    padding:12px 16px;
+    border-radius:8px;
+    font-size:15px;
+  }
+  #liste h2{
+    font-size:18px;
+    margin-top:0;
+    border-bottom:1px solid rgba(255,255,255,.2);
+    padding-bottom:6px;
+  }
+  #liste ul{
+    list-style:none;
+    padding:0;
+    margin:0;
+    columns:2;
+  }
+  #liste li{ padding:3px 0; }
+
+  .snow{ position:absolute; inset:0; pointer-events:none; overflow:hidden;
+         mask-image: radial-gradient(80% 80% at 50% 45%, #000 60%, transparent 100%); }
+  .flake{ position:absolute; background:#fff; border-radius:50%;
+          opacity:.8; filter:blur(.5px); animation: fall linear infinite; }
+  @keyframes fall{ from{ transform: translateY(-10%) } to{ transform: translateY(110%) } }
+
+  @media (max-width:480px){ :root{ --ball-size: 38px; } #liste ul{ columns:1; } }
+</style>
+</head>
+<body>
+  <h1>🎄 NDLA Julekalender</h1>
+  <div class="hint">Klikk på en kule for å trekke et navn. Hver person kan kun trekkes én gang (lagres i nettleseren).</div>
+
+  <div class="stage" id="stage">
+    <div class="tree-wrap" aria-hidden="true">
+      <div class="tree"></div>
+    </div>
+    <div class="star">⭐</div>
+    <div class="snow" id="snow"></div>
+  </div>
+
+  <div id="result">Klar for første trekning! 🎁</div>
+
+  <div class="footer">
+    <div class="muted" id="status">0/24 kuler åpnet · 0/67 personer trukket</div>
+    <button class="btn" id="reset">Nullstill</button>
+  </div>
+
+  <div id="liste">
+    <h2>🎁 Trukne navn</h2>
+    <ul id="navneliste"></ul>
+  </div>
+
+<script>
+const STORAGE_KEY = "ndla_julekalender_v6";
+
+/* Presise, håndplukkede posisjoner (innenfor treet), i prosent av scene
+   – dekker topp, midt og nederste gren godt */
+const positions = [
+  // toppseksjon
+  {x:50, y:13},
+  {x:46, y:17}, {x:54, y:17},
+  {x:42, y:21}, {x:50, y:22}, {x:58, y:21},
+
+  // øvre midt
+  {x:38, y:27}, {x:46, y:28}, {x:54, y:28}, {x:62, y:27},
+
+  // midt
+  {x:34, y:34}, {x:42, y:35.5}, {x:50, y:36.5}, {x:58, y:35.5}, {x:66, y:34},
+
+  // nedre midt (bredere)
+  {x:30, y:44}, {x:40, y:45.5}, {x:50, y:46.5}, {x:60, y:45.5}, {x:70, y:44},
+
+  // nederste gren (tydelig nederst på trekronen)
+  {x:26, y:55.5}, {x:38, y:58}, {x:50, y:60}, {x:64, y:58}
+];
+
+/* Vi viser tallene i vilkårlig rekkefølge ved å stokke labels uavhengig av posisjonene */
+function shuffle(arr){
+  const a=[...arr];
+  for(let i=a.length-1;i>0;i--){
+    const j=Math.floor(Math.random()*(i+1));
+    [a[i],a[j]]=[a[j],a[i]];
+  }
+  return a;
+}
+const labels = shuffle([...Array(24)].map((_,i)=>i+1));
+
+/* 67 navn (som du sendte) */
+const names = [
+  "Åge André Breivik","Albertine Aaberge","Aleksandra Krogh","Angelica Bruntveit","annamaria.​holvik","Anne Vagstein",
+  "Arne Mjelde Sæther","Åsa Abusland","Beate Haugberg","Bjarne Skurdal","Bjorn Ole Schjolberg","Bjørn Magne Espeset",
+  "Christian Stange","Christina Svien","danuta.​kwiatkowska","Eirik Tengesdal Skogvold","Eivind Sehested Zakariassen","Elisabeth Thoresen Olseng",
+  "Frøydis Lindtner","Haldor Hove","Hans Græsli","Hilde Schjølberg Evensen","Inga Berntsen Rudi","Ingebjørg Eitrheim Nondal","ingersporaland",
+  "Ingrid Resell","Ingvild Stegane Strandbråten","Jan Frode Lindsø","jannike.​gausdal","jarlestenolsen","Johan Vikan","Johannes Nag",
+  "Jonas Hagemo","Julia Kleven","Julie Bjørnstad","Junie Loftesnes","karlhenrikaanesen","Kathrine Synnove Karlsen","Kim Rætta",
+  "Knut Inge Skifjeld","Kristin Finstad","Lars Drage","livkarinjoma","Marc Van Opstal","Margreta Tveisme","Marion Federl","Marthe Moe",
+  "Mustafa Sarakaya","Ole Fossgård","ragnator","Ragnfrid Myhr","Rebecca Elisabeth Mohr Tovslid","Roger Rosmo","Signe Høgh","Sigurd","Siv Stai",
+  "Sølvi Skeide","Stein Dvergsnes","Stina Åshildsdatter Grolid","Synnove Skare Baade","Therese Carlsen","Thomas Bedin","Thomas Nupen","Tom",
+  "tonehadlerolsen","Tove Annette Holter","Guttorm","vigdis.​haugan"
+];
+
+function loadState(){
+  try{
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if(!raw) return { assignments:{}, drawnNames:[] };
+    const obj = JSON.parse(raw);
+    obj.assignments ??= {};
+    obj.drawnNames ??= Object.values(obj.assignments);
+    return obj;
+  }catch{ return { assignments:{}, drawnNames:[] }; }
+}
+function saveState(s){ localStorage.setItem(STORAGE_KEY, JSON.stringify(s)); }
+
+let state = loadState();
+const stage = document.getElementById("stage");
+const result = document.getElementById("result");
+const statusEl = document.getElementById("status");
+const listeEl = document.getElementById("navneliste");
+const resetBtn = document.getElementById("reset");
+
+function remainingNames(){
+  const used = new Set(state.drawnNames);
+  return names.filter(n => !used.has(n));
+}
+
+function updateStatus(){
+  const opened = Object.keys(state.assignments).length;
+  const drawn = state.drawnNames.length;
+  statusEl.textContent = `${opened}/24 kuler åpnet · ${drawn}/67 personer trukket`;
+  updateList();
+}
+
+function updateList(){
+  listeEl.innerHTML = "";
+  state.drawnNames.forEach((n,i)=>{
+    const li=document.createElement("li");
+    li.textContent=`${i+1}. ${n}`;
+    listeEl.appendChild(li);
+  });
+}
+
+/* Tegn kuler: bruk posisjoner, men tildel tilfeldige labels 1–24 */
+positions.forEach((p,i)=>{
+  const nr = labels[i];
+  const b=document.createElement("button");
+  b.className="ball";
+  b.type="button";
+  b.textContent=nr;
+
+  /* posisjoner er i scene-koordinater (prosent) tilpasset den skalerte treplasseringen */
+  b.style.left=p.x+"%";
+  b.style.top=p.y+"%";
+
+  const assigned=state.assignments[nr];
+  if(assigned){ b.classList.add("used"); b.title=`Trukket: ${assigned}`; b.dataset.name=assigned; }
+  b.addEventListener("click",()=>openBall(b,nr));
+  stage.appendChild(b);
+});
+
+/* Snøpynt */
+(function snow(){
+  const wrap=document.getElementById("snow");
+  for(let i=0;i<30;i++){
+    const f=document.createElement("div");
+    const size=Math.random()*3+1;
+    f.className="flake";
+    f.style.width=f.style.height=size+"px";
+    f.style.left=(Math.random()*100)+"%";
+    f.style.top=(-Math.random()*40)+"%";
+    const dur=8+Math.random()*8;
+    f.style.animationDuration=dur+"s";
+    f.style.animationDelay=(-Math.random()*dur)+"s";
+    wrap.appendChild(f);
+  }
+})();
+
+function openBall(ball,nr){
+  if(ball.classList.contains("used")){
+    result.textContent=`Kule ${nr} var allerede åpnet: ${ball.dataset.name || ""}`;
+    return;
+  }
+  const pool=remainingNames();
+  if(pool.length===0){ result.textContent="Alle 67 navn er allerede trukket! 🎉"; return; }
+  const idx=Math.floor(Math.random()*pool.length);
+  const name=pool[idx];
+
+  state.assignments[nr]=name;
+  state.drawnNames.push(name);
+  saveState(state);
+
+  ball.classList.add("used");
+  ball.dataset.name=name;
+  ball.title=`Trukket: ${name}`;
+  result.textContent=`🎁 Bak kule ${nr}: ${name}!`;
+  updateStatus();
+
+  ball.animate(
+    [{transform:'translate(-50%,-50%) scale(1.0)'},
+     {transform:'translate(-50%,-54%) scale(1.12)'},
+     {transform:'translate(-50%,-50%) scale(1.0)'}],
+    {duration:320,easing:'ease-out'}
+  );
+}
+updateStatus();
+
+/* Nullstill */
+resetBtn.addEventListener("click",()=>{
+  const opened=Object.keys(state.assignments).length;
+  if(confirm(`Nullstille kalenderen? (${opened} åpne kuler vil tilbakestilles)`)){
+    state={assignments:{},drawnNames:[]};
+    saveState(state);
+    document.querySelectorAll(".ball").forEach(b=>{
+      b.classList.remove("used");
+      b.removeAttribute("data-name");
+      b.removeAttribute("title");
+    });
+    result.textContent="Kalenderen er nullstilt. Klar for ny trekning! 🎁";
+    updateStatus();
+  }
+});
+</script>
+</body>
+</html>
